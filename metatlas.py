@@ -172,7 +172,7 @@ class ParseResults(object):
             with open(formula + '.opt') as f:
                 contents = f.readlines()
         except IOError:
-            raise IOError, 'no output file to parse'
+            raise IOError('no output file to parse')
         self.coords, self.grads, self.energies = self._parse_orca_opt_file(
             contents)
 
@@ -180,7 +180,7 @@ class ParseResults(object):
             with open(formula + '.out') as f:
                 contents = f.readlines()
         except IOError:
-            raise IOError, 'no output file to parse'
+            raise IOError('no output file to parse')
 
         natoms = len(self.coords[1, :, 1])
         self.atom_list = self._get_orca_atom_list(natoms, contents)
@@ -317,9 +317,9 @@ class ProtonateMolecule(FiretaskBase):
         self.stored_data['protonated_children'] = []
         for atom in pymol.atoms:
             if atom.atomicnum in [7, 8, 15, 16]:
-                print 'Atom #{} is {} atom with\n coords {}'.format(atom.idx,
+                print('Atom #{} is {} atom with\n coords {}'.format(atom.idx,
                                                                     element(atom.atomicnum),
-                                                                    atom.coords)
+                                                                    atom.coords))
                 child = {}
                 child['atom_index'] = atom.idx
                 child['element'] = element(atom.atomicnum).symbol
@@ -336,13 +336,10 @@ class ProtonateMolecule(FiretaskBase):
                 h.SetVector(h.GetVector().GetX() + 0.4,
                             h.GetVector().GetY() + 0.4,
                             h.GetVector().GetZ() + 0.4)
-                print 'New Proton is #{} with info {} and\n coords ({}, {}. {})'.format(
-                    h.GetIdx(),
-                    element(h.GetAtomicNum()),
-                    h.GetVector().GetX(),
-                    h.GetVector().GetY(),
-                    h.GetVector().GetZ()
-                )
+                print('New Proton is #{} with info {} and\n coords ({}, {}. {})'
+                      .format(h.GetIdx(), element(h.GetAtomicNum()),
+                              h.GetVector().GetX(), h.GetVector().GetY(),
+                              h.GetVector().GetZ()))
                 obmol.InsertAtom(h)
                 obmol.AddBond(atom.idx, h.GetIdx(), 1)
                 obmol.SetTotalCharge(pymol.charge + 1)
@@ -446,7 +443,7 @@ def make_df_with_smiles_only_from_csv(csv_file, reset=False):
     try:
         df = pd.read_pickle('molecules.pkl')
     except IOError:
-        print 'No pickle to recover'
+        print('No pickle to recover')
     else:
         return df
 
@@ -477,7 +474,7 @@ def make_df_with_molecules_from_csv(csv_file, reset=False):
     try:
         df = pd.read_pickle('molecules.pkl')
     except IOError:
-        print 'No pickle to recover'
+        print('No pickle to recover')
     else:
         return df
 
@@ -708,9 +705,9 @@ def create_pybel_molecule(mol_string, strtype='xyz', lprint=False):
         try:
             molecule = pybel.readstring('smi', smiles, opt={})
         except TypeError:
-            print type(smiles)
-            print 'Unable to convert smiles string {} to pybel.Molecule'.format(
-                smiles)
+            print(type(smiles))
+            print('Unable to convert smiles string {} to '
+                  'pybel.Molecule'.format(smiles))
             raise
         else:
             molecule.title = molecule.formula
@@ -720,12 +717,12 @@ def create_pybel_molecule(mol_string, strtype='xyz', lprint=False):
         try:
             molecule = pybel.readfile('xyz', xyzfile).next()
         except TypeError or IOError:
-            print type(xyzfile)
-            print 'Unable to get xyzfile {} to pybel.Molecule'.format(
-                xyzfile)
+            print(type(xyzfile))
+            print('Unable to get xyzfile {} to pybel.Molecule'
+                   .format(xyzfile))
             raise
     else:
-        raise ValueError, 'unable to get molecule'
+        raise ValueError('unable to get molecule')
 
     return molecule
 
@@ -747,7 +744,7 @@ def optimize_with_orca(formula):
             process = Popen(['orca', formula + '.inp'], stdout=PIPE)
             output, err = process.communicate()
             if iter > 4:
-                raise ValueError, "unable to reach opt convergence"
+                raise ValueError("unable to reach opt convergence")
 
         with open(formula + '.out', 'w') as f:
             f.write(output)
