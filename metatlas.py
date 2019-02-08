@@ -209,7 +209,7 @@ class ParseResults(object):
                 continue
 
             if get_dims:
-                dims = map(int, line.split())
+                dims = list(map(int, line.split()))
                 get_dims = False
                 continue
 
@@ -233,9 +233,9 @@ class ParseResults(object):
                     grads = []
 
         grads = np.reshape(
-            np.asarray(steps['gradients']), (dims[0], dims[1] / 3, 3))
+            np.asarray(steps['gradients']), (dims[0], int(dims[1] / 3), 3))
         coords = np.reshape(
-            np.asarray(steps['coords']), (dims[0], dims[1] / 3, 3))
+            np.asarray(steps['coords']), (dims[0], int(dims[1] / 3), 3))
         energies = np.reshape(np.asarray(steps['energies']), (dims[0]))
 
         return coords, grads, energies
@@ -729,14 +729,14 @@ def create_pybel_molecule(mol_string, strtype='xyz', lprint=False):
 
 def optimize_with_orca(formula):
     iter = 0
-    output = ''
+    output = b''
 
     try:
-        with open(formula + '.out', 'r') as f:
+        with open(formula + '.out', 'rb') as f:
             output = f.read()
     except IOError:
-        while 'OPTIMIZATION RUN DONE' not in output and \
-                'TERMINATED NORMALLY' not in output:
+        while b'OPTIMIZATION RUN DONE' not in output and \
+                b'TERMINATED NORMALLY' not in output:
 
             iter += 1
             # process = Popen(['srun', 'orca', formula+'.inp'], stdout=f)
@@ -746,7 +746,7 @@ def optimize_with_orca(formula):
             if iter > 4:
                 raise ValueError("unable to reach opt convergence")
 
-        with open(formula + '.out', 'w') as f:
+        with open(formula + '.out', 'wb') as f:
             f.write(output)
 
     return output
