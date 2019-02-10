@@ -683,6 +683,7 @@ def create_orca_input_string(molecule):
     orca_string += ' end\nend\n'
     orca_string += '%geom\n MaxIter 200\n end\n'
     orca_string += '%scf\n MaxIter 1500\n end\n'
+    orca_string == '%PAL NPROCS 8 END '
 
     return orca_string, calc_details
 
@@ -741,7 +742,7 @@ def optimize_with_orca(formula):
             iter += 1
             # process = Popen(['srun', 'orca', formula+'.inp'], stdout=f)
 
-            process = Popen(['orca', formula + '.inp'], stdout=PIPE)
+            process = Popen(['/global/homes/m/melkhati/software/orca_4_1_1_linux_x86-64_openmpi313/orca', formula + '.inp'], stdout=PIPE)
             output, err = process.communicate()
             if iter > 4:
                 raise ValueError("unable to reach opt convergence")
