@@ -669,6 +669,7 @@ def create_orca_input_string(molecule):
     orca_string += '!SlowConv\n'
     orca_string += '!NOSOSCF\n'
     orca_string += '!PM3 Opt \n%coords \n  CTyp xyz\n'
+    #orca_string += '%pal nprocs 8 end\n'
     orca_string += ' Charge ' + str(charge) + '\n'
     orca_string += ' Mult ' + str(mult) + '\n coords\n'
 
@@ -683,7 +684,6 @@ def create_orca_input_string(molecule):
     orca_string += ' end\nend\n'
     orca_string += '%geom\n MaxIter 200\n end\n'
     orca_string += '%scf\n MaxIter 1500\n end\n'
-    orca_string == '%PAL NPROCS 8 END '
 
     return orca_string, calc_details
 
