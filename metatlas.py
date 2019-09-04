@@ -9,9 +9,9 @@ molecules in the Metatlas database.
 -----------    ----------    -----------
 """
 import re
+import csv
 import pybel
 import openbabel
-import psi4
 import numpy as np
 import pandas as pd
 from configparser import SafeConfigParser
@@ -21,7 +21,12 @@ from os import remove
 from mendeleev import element
 from subprocess import Popen, PIPE
 from fireworks import Firework, LaunchPad, FiretaskBase, FWAction
+from collections import OrderedDict
 
+try:
+    import psi4
+except ModuleNotFoundError:
+    pass
 try:
     termtype = get_ipython().__class__.__name__
 except:
@@ -139,7 +144,7 @@ class OrcaOptimize(FiretaskBase):
     def run_task(self, fw_spec):
         orca_string = fw_spec['orca_string'][0][0]
         formula = fw_spec['formula'][0]
-        write_string_to_orca_file(formula, orca_string)
+        write_string_to_file(formula, orca_string)
 
         try:
             output = optimize_with_orca(formula)
@@ -167,14 +172,17 @@ class OrcaOptimize(FiretaskBase):
 
 class ParseResults(object):
 
-    def __init__(self, formula):
+    def __init__(self, formula, program='orca'):
         try:
             with open(formula + '.opt') as f:
                 contents = f.readlines()
         except IOError:
             raise IOError('no output file to parse')
-        self.coords, self.grads, self.energies = self._parse_orca_opt_file(
-            contents)
+        
+        if program == 'orca':
+            self.coords, self.grads, self.energies = self._parse_orca_opt_file(contents)
+        elif program == 'mopac':
+            self.coords, self.grads, self.energies = self._parse_orca_opt_file(contents)
 
         try:
             with open(formula + '.out') as f:
@@ -209,7 +217,7 @@ class ParseResults(object):
                 continue
 
             if get_dims:
-                dims = map(int, line.split())
+                dims = list(map(int, line.split()))
                 get_dims = False
                 continue
 
@@ -233,9 +241,9 @@ class ParseResults(object):
                     grads = []
 
         grads = np.reshape(
-            np.asarray(steps['gradients']), (dims[0], dims[1] / 3, 3))
+            np.asarray(steps['gradients']), (dims[0], dims[1] // 3, 3))
         coords = np.reshape(
-            np.asarray(steps['coords']), (dims[0], dims[1] / 3, 3))
+            np.asarray(steps['coords']), (dims[0], dims[1] // 3, 3))
         energies = np.reshape(np.asarray(steps['energies']), (dims[0]))
 
         return coords, grads, energies
@@ -281,7 +289,7 @@ class ProtonateMolecule(FiretaskBase):
 
     def _generate_parent(self, pymol):
         orca_string, _ = create_orca_input_string(pymol)
-        write_string_to_orca_file(pymol.formula, orca_string)
+        write_string_to_file(pymol.formula, orca_string)
 
         try:
             output = optimize_with_orca(pymol.formula)
@@ -362,7 +370,7 @@ class ProtonateMolecule(FiretaskBase):
 
         for i, inp in enumerate(orca_strings):
             try:
-                write_string_to_orca_file(pymol.formula+'-{}'.format(i), inp)
+                write_string_to_file(pymol.formula+'-{}'.format(i), inp)
                 output = optimize_with_orca(pymol.formula+'-{}'.format(i))
             except ValueError:  # some kind of fault error
                 # DON"T KNOW WHAT GOES HERE YET"
@@ -527,7 +535,7 @@ def make_df_with_molecules_from_csv(csv_file, reset=False):
 
 def read_molecules_from_csv(fname):
     """ given a csv file, return dict of inchikey to inchistring """
-    mols = {}
+    mols = OrderedDict()
     with open(fname) as csvFile:
         csv_reader = csv.reader(csvFile)
         for row in csv_reader:
@@ -728,7 +736,7 @@ def create_pybel_molecule(mol_string, strtype='xyz', lprint=False):
 
 
 def optimize_with_orca(formula):
-    iter = 0
+    iteration = 0
     output = ''
 
     try:
@@ -738,12 +746,12 @@ def optimize_with_orca(formula):
         while 'OPTIMIZATION RUN DONE' not in output and \
                 'TERMINATED NORMALLY' not in output:
 
-            iter += 1
+            iteration += 1
             # process = Popen(['srun', 'orca', formula+'.inp'], stdout=f)
 
             process = Popen(['orca', formula + '.inp'], stdout=PIPE)
             output, err = process.communicate()
-            if iter > 4:
+            if iteration > 4:
                 raise ValueError("unable to reach opt convergence")
 
         with open(formula + '.out', 'w') as f:
@@ -752,7 +760,7 @@ def optimize_with_orca(formula):
     return output
 
 
-def write_string_to_orca_file(formula, input_string):
+def write_string_to_file(formula, input_string):
     input_name = formula + '.inp'
     with open(input_name, 'w') as f:
         f.write(input_string)
@@ -780,3 +788,63 @@ def make_grad_from_stored_data(atoms, grads):
 
     grad_string += '\n'
     return grad_string
+
+class MopacOptimize(FiretaskBase):
+    _fw_name = 'MopacOptimize'
+    optional_params = ['mopac_string', 'formula']
+
+    # required_params = ['input_string', 'calc_details']
+
+    def run_task(self, fw_spec):
+        mopac_string = fw_spec['mopac_string'][0][0]
+        formula = fw_spec['formula'][0]
+        write_string_to_file(formula, mopac_string)
+
+        try:
+            optimize_with_mopac(formula)
+        except ValueError:  # some kind of fault error
+            # DON"T KNOW WHAT GOES HERE YET"
+            # rerun_fw = Firework(ComputeEnergyTask(input_string=self['input_string'],
+            #                                         calc_details=self['calc_details']),
+            #                     name=formula)
+            # return FWAction(detours=rerun_fw)
+            pass
+
+            # Parse results needs a new format to better store more info
+        try:
+            Results = ParseResults(formula)
+        except IOError:
+            raise
+
+        return FWAction(stored_data={
+            'coords': Results.coords,
+            'grads': Results.grads,
+            'energies': Results.energies,
+            'atom_list': Results.atom_list
+        })
+
+def optimize_with_mopac(formula):
+    iteration = 0
+    output = ''
+
+    try:
+        with open(formula + '.out', 'r') as f:
+            output = f.read()
+    except IOError:
+        while 'JOB ENDED NORMALLY' not in output:
+
+            iteration += 1
+            # process = Popen(['srun', 'orca', formula+'.inp'], stdout=f)
+
+            command = ["MOPAC_LICENSE=/global/homes/m/melkhati/software/mopac",
+                       "/global/homes/m/melkhati/software/mopac/MOPAC2016.exe",
+                       formula + ".inp"]
+            process = Popen(command, stdout=PIPE)
+            output, err = process.communicate()
+            if iteration > 4:
+                raise ValueError("unable to reach opt convergence")
+
+        with open(formula + '.out', 'w') as f:
+            f.write(output)
+
+    return output
