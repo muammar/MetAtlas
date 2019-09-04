@@ -737,24 +737,24 @@ def create_pybel_molecule(mol_string, strtype='xyz', lprint=False):
 
 def optimize_with_orca(formula):
     iteration = 0
-    output = ''
+    output = b''
 
     try:
-        with open(formula + '.out', 'r') as f:
+        with open(formula + '.out', 'rb') as f:
             output = f.read()
     except IOError:
-        while 'OPTIMIZATION RUN DONE' not in output and \
-                'TERMINATED NORMALLY' not in output:
+        while b'OPTIMIZATION RUN DONE' not in output and \
+                b'TERMINATED NORMALLY' not in output:
 
             iteration += 1
             # process = Popen(['srun', 'orca', formula+'.inp'], stdout=f)
 
-            process = Popen(['orca', formula + '.inp'], stdout=PIPE)
+            process = Popen(['/global/homes/m/melkhati/software/orca_4_1_1_linux_x86-64_openmpi313/orca', formula + '.inp'], stdout=PIPE)
             output, err = process.communicate()
             if iteration > 4:
                 raise ValueError("unable to reach opt convergence")
 
-        with open(formula + '.out', 'w') as f:
+        with open(formula + '.out', 'wb') as f:
             f.write(output)
 
     return output
